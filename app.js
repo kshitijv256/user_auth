@@ -77,23 +77,89 @@ passport.deserializeUser((id, done) => {
 
 // routes
 app.get("/", (req, res) => {
-    res.render("index", { user: req.user });
-    });
+  res.render("index", { user: req.user });
+});
 
+app.get("/login", (req, res) => {
+  res.render("login", { user: req.user });
+});
+
+app.get("/signup", (req, res) => {
+  res.render("signup", { user: req.user });
+});
 
 app.post("/user", async (req, res) => {
-    const hash = await bcrypt.hash(password, saltRounds);
-    await User.create({
-        name: req.body.name,
-        nobile: req.body.mobile,
-        email: req.body.email,
-        password: hash,
+  const hash = await bcrypt.hash(req.body.password, saltRounds);
+  await User.create({
+    name: req.body.name,
+    nobile: req.body.mobile,
+    email: req.body.email,
+    password: hash,
+  })
+    .then((user) => {
+      res.send(user);
     })
-        .then((user) => {
-        res.send(user);
-        })
-        .catch((err) => {
-        res.send(err);
-        });
-    }
+    .catch((err) => {
+      res.send(err);
+    });
+});
+
+app.post(
+  "/session",
+  passport.authenticate("local", {
+    failureRedirect: "/login",
+    failureFlash: true,
+  }),
+  (request, response) => {
+    response.send(request.user);
+  }
 );
+
+app.post("/newpass", async (req, res) => {
+  const user = await User.findOne({
+    where: { email: req.body.email },
+  });
+  const result = await bcrypt.compare(req.body.currPass, user.password);
+  if (!result) {
+    res.send("Incorrect password");
+  }
+  const hash = await bcrypt.hash(req.body.password, saltRounds);
+  await User.update(
+    {
+      password: hash,
+    },
+    {
+      where: {
+        email: req.body.email,
+      },
+    }
+  )
+    .then((user) => {
+      res.send(user);
+    })
+    .catch((err) => {
+      res.send(err);
+    });
+});
+
+app.post("/profile", async (req, res) => {
+  await User.update(
+    {
+      name: req.body.name,
+      mobile: req.body.mobile,
+    },
+    {
+      where: {
+        email: req.body.email,
+      },
+    }
+  )
+    .then((user) => {
+      res.send(user);
+    })
+    .catch((err) => {
+      res.send(err);
+    });
+});
+
+module.exports = app;
